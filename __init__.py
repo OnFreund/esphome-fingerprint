@@ -4,7 +4,7 @@ from esphome import automation
 from esphome.components import uart
 from esphome.const import CONF_ID, CONF_PASSWORD, CONF_TRIGGER_ID, CONF_UART_ID
 
-CODEOWNERS = ['@OnFreund']
+CODEOWNERS = ['@OnFreund', '@loongyh']
 DEPENDENCIES = ['uart']
 AUTO_LOAD = ['binary_sensor', 'sensor']
 MULTI_CONF = True
@@ -15,32 +15,32 @@ CONF_ON_ENROLLMENT_SCAN = "on_enrollment_scan"
 CONF_ON_ENROLLMENT_DONE = "on_enrollment_done"
 CONF_FINGER_ID = "finger_id"
 CONF_NUM_SCANS = "num_scans"
-CONF_FINGERPRINT_READER_ID = 'fingerprint_reader_id'
+CONF_RXXX_ID = 'rxxx_id'
 
-fingerprint_ns = cg.esphome_ns.namespace('fingerprint_reader')
-FingerprintComponent = fingerprint_ns.class_('FingerprintReader', cg.PollingComponent)
-ScannedTrigger = fingerprint_ns.class_('FingerScannedTrigger',
+rxxx_ns = cg.esphome_ns.namespace('rxxx')
+RxxxComponent = rxxx_ns.class_('RxxxComponent', cg.PollingComponent)
+ScannedTrigger = rxxx_ns.class_('FingerScannedTrigger',
   automation.Trigger.template(
     cg.bool,
     cg.int,
     cg.int,
     cg.int))
 
-EnrollmentScanTrigger = fingerprint_ns.class_('EnrollmentScanTrigger',
+EnrollmentScanTrigger = rxxx_ns.class_('EnrollmentScanTrigger',
   automation.Trigger.template(
     cg.int,
     cg.int))
 
-EnrollmentTrigger = fingerprint_ns.class_('EnrollmentTrigger',
+EnrollmentTrigger = rxxx_ns.class_('EnrollmentTrigger',
   automation.Trigger.template(
     cg.bool,
     cg.int,
     cg.int))
 
-EnrollmentAction = fingerprint_ns.class_('FingerprintEnrollAction', automation.Action)
+EnrollmentAction = rxxx_ns.class_('FingerprintEnrollAction', automation.Action)
 
 CONFIG_SCHEMA = cv.Schema({
-    cv.GenerateID(): cv.declare_id(FingerprintComponent),
+    cv.GenerateID(): cv.declare_id(RxxxComponent),
     cv.Required(CONF_SENSING_PIN): cv.int,
     cv.Optional(CONF_PASSWORD): cv.int,
     cv.Optional(CONF_ON_FINGER_SCANNED): automation.validate_automation({
@@ -91,14 +91,14 @@ def to_code(config):
 
 
 FINGER_ENROLL_SCHEMA = cv.Schema({
-    cv.GenerateID(): cv.use_id(FingerprintComponent),
+    cv.GenerateID(): cv.use_id(RxxxComponent),
     cv.Required(CONF_FINGER_ID): cv.templatable(cv.int),
     cv.Required(CONF_NUM_SCANS): cv.templatable(cv.int),
 })
 
 
-@automation.register_action('fingerprint_reader.enroll', EnrollmentAction, FINGER_ENROLL_SCHEMA)
-def fingerprint_reader_enroll(config, action_id, template_arg, args):
+@automation.register_action('rxxx.enroll', EnrollmentAction, FINGER_ENROLL_SCHEMA)
+def rxxx_enroll(config, action_id, template_arg, args):
     paren = yield cg.get_variable(config[CONF_ID])
     var = cg.new_Pvariable(action_id, template_arg, paren)
     template_ = yield cg.templatable(config[CONF_FINGER_ID], args, cg.int)

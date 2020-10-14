@@ -2,14 +2,14 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import binary_sensor
 from esphome.const import CONF_ID, CONF_TRIGGER_ID
-from . import CONF_FINGERPRINT_READER_ID, fingerprint_ns, FingerprintComponent
+from . import CONF_RXXX_ID, rxxx_ns, RxxxComponent
 
-DEPENDENCIES = ['fingerprint_reader']
+DEPENDENCIES = ['rxxx']
 
 CONF_ENROLLING = "enrolling"
 
 CONFIG_SCHEMA = cv.Schema.extend({
-    cv.GenerateID(CONF_FINGERPRINT_READER_ID): cv.use_id(FingerprintComponent),
+    cv.GenerateID(CONF_RXXX_ID): cv.use_id(RxxxComponent),
     cv.Optional(CONF_ENROLLING):
         binary_sensor.BINARY_SENSOR_SCHEMA,
 })

@@ -4,9 +4,9 @@
 #include "Adafruit_Fingerprint.h"
 
 namespace esphome {
-namespace fingerprint_reader {
+namespace rxxx {
 
-class FingerprintReaderComponent : public PollingComponent {
+class RxxxComponent : public PollingComponent {
   public:
   void update() override;
   void setup() override;
@@ -74,7 +74,7 @@ class FingerprintReaderComponent : public PollingComponent {
 
 class FingerScannedTrigger : public Trigger<bool, int, int, int> {
  public:
-  explicit FingerScannedTrigger(FingerprintReaderComponent *parent) {
+  explicit FingerScannedTrigger(RxxxComponent *parent) {
     parent->add_on_finger_scanned_callback(
         [this](bool success, int result, int finger_id, int confidence) {
           this->trigger(success, result, finger_id, confidence);
@@ -84,7 +84,7 @@ class FingerScannedTrigger : public Trigger<bool, int, int, int> {
 
 class EnrollmentScanTrigger : public Trigger<int, int> {
  public:
-  explicit EnrollmentScanTrigger(FingerprintReaderComponent *parent) {
+  explicit EnrollmentScanTrigger(RxxxComponent *parent) {
     parent->add_on_enrollment_scan_callback(
         [this](int scan_number, int finger_id) {
           this->trigger(scan_number, finger_id);
@@ -94,7 +94,7 @@ class EnrollmentScanTrigger : public Trigger<int, int> {
 
 class EnrollmentTrigger : public Trigger<bool, int, int> {
  public:
-  explicit EnrollmentTrigger(FingerprintReaderComponent *parent) {
+  explicit EnrollmentTrigger(RxxxComponent *parent) {
     parent->add_on_enrollment_callback(
         [this](bool success, int result, int finger_id) {
           this->trigger(success, result, finger_id);
@@ -104,7 +104,7 @@ class EnrollmentTrigger : public Trigger<bool, int, int> {
 
 template<typename... Ts> class FingerprintEnrollAction : public Action<Ts...> {
  public:
-  FingerprintEnrollAction(FingerprintReaderComponent *parent) : parent_(parent) {}
+  FingerprintEnrollAction(RxxxComponent *parent) : parent_(parent) {}
   TEMPLATABLE_VALUE(int, finger_id)
   TEMPLATABLE_VALUE(int, num_scans)
 
@@ -115,8 +115,8 @@ template<typename... Ts> class FingerprintEnrollAction : public Action<Ts...> {
   }
 
  protected:
-  FingerprintReaderComponent *parent_;
+  RxxxComponent *parent_;
 };
 
-}  // namespace fingerprint_reader
+}  // namespace rxxx
 }  // namespace esphome
