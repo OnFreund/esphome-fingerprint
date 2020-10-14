@@ -1,13 +1,13 @@
-#include "fingerprint_reader.h"
+#include "rxxx.h"
 #include "esphome/core/log.h"
 #include <string.h>
 
 namespace esphome {
-namespace fingerprint_reader {
+namespace rxxx {
 
-static const char* TAG = "fingerprint";
+static const char* TAG = "rxxx";
 
-void FingerprintReaderComponent::update() {
+void RxxxComponent::update() {
   if (waitingRemoval) {
     if (FINGERPRINT_NOFINGER == finger_->getImage()) {
       waitingRemoval = false;
@@ -55,7 +55,7 @@ void FingerprintReaderComponent::update() {
   ++enrollementImage_;
 }
 
-void FingerprintReaderComponent::setup() {
+void RxxxComponent::setup() {
   pinMode(sensing_pin_, INPUT);
   finger_->begin(57600);
   if (!finger_->verifyPassword()) {
@@ -69,14 +69,14 @@ void FingerprintReaderComponent::setup() {
   get_fingerprint_count();
 }
 
-void FingerprintReaderComponent::finish_enrollment(int result) {
+void RxxxComponent::finish_enrollment(int result) {
   this->enrollment_callback_.call(FINGERPRINT_OK == result, result, enrollementSlot_)
   enrollementImage_ = 0;
   enrollementSlot_ = 0;
   enrolling_binary_sensor_->publish_state(false);
 }
 
-void FingerprintReaderComponent::scan_and_match() {
+void RxxxComponent::scan_and_match() {
   int result = scan_image(1);
   int finger_id = -1;
   int confidence = 0;
@@ -96,7 +96,7 @@ void FingerprintReaderComponent::scan_and_match() {
   this->finger_scanned_callback_.call(FINGERPRINT_OK == result, result, finger_id, confidence)
 }
 
-int FingerprintReaderComponent::scan_image(int buffer) {
+int RxxxComponent::scan_image(int buffer) {
   ESP_LOGD(TAG, "Getting image %d", buffer);
   int p = finger_->getImage();
   if (p != FINGERPRINT_OK) {
@@ -126,10 +126,10 @@ int FingerprintReaderComponent::scan_image(int buffer) {
   }
 }
 
-void FingerprintReaderComponent::dump_config() {
-  ESP_LOGCONFIG(TAG, "FINGERPRINT_READER:");
+void RxxxComponent::dump_config() {
+  ESP_LOGCONFIG(TAG, "RXXX_FINGERPRINT_READER:");
   // ESP_LOGCONFIG(TAG, "  RSSI: %d dB", this->rssi_);
 }
 
-}  // namespace fingerprint_reader
+}  // namespace rxxx
 }  // namespace esphome
