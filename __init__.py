@@ -1,12 +1,13 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome import automation
+from esphome import pins
 from esphome.components import uart
 from esphome.const import CONF_ID, CONF_PASSWORD, CONF_TRIGGER_ID, CONF_UART_ID
 
 CODEOWNERS = ['@OnFreund', '@loongyh']
 DEPENDENCIES = ['uart']
-AUTO_LOAD = ['binary_sensor', 'sensor']
+AUTO_LOAD = ['sensor', 'binary_sensor']
 MULTI_CONF = True
 
 CONF_SENSING_PIN = "sensing_pin"
@@ -18,31 +19,31 @@ CONF_NUM_SCANS = "num_scans"
 CONF_RXXX_ID = 'rxxx_id'
 
 rxxx_ns = cg.esphome_ns.namespace('rxxx')
-RxxxComponent = rxxx_ns.class_('RxxxComponent', cg.PollingComponent)
+RxxxComponent = rxxx_ns.class_('RxxxComponent', cg.PollingComponent, uart.UARTDevice)
 ScannedTrigger = rxxx_ns.class_('FingerScannedTrigger',
   automation.Trigger.template(
-    cg.bool,
-    cg.int,
-    cg.int,
-    cg.int))
+    cg.bool_,
+    cg.int_,
+    cg.int_,
+    cg.int_))
 
 EnrollmentScanTrigger = rxxx_ns.class_('EnrollmentScanTrigger',
   automation.Trigger.template(
-    cg.int,
-    cg.int))
+    cg.int_,
+    cg.int_))
 
 EnrollmentTrigger = rxxx_ns.class_('EnrollmentTrigger',
   automation.Trigger.template(
-    cg.bool,
-    cg.int,
-    cg.int))
+    cg.bool_,
+    cg.int_,
+    cg.int_))
 
 EnrollmentAction = rxxx_ns.class_('FingerprintEnrollAction', automation.Action)
 
 CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.declare_id(RxxxComponent),
-    cv.Required(CONF_SENSING_PIN): cv.int,
-    cv.Optional(CONF_PASSWORD): cv.int,
+    cv.Required(CONF_SENSING_PIN): pins.gpio_input_pin_schema,
+    cv.Optional(CONF_PASSWORD): cv.uint32_t,
     cv.Optional(CONF_ON_FINGER_SCANNED): automation.validate_automation({
         cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(ScannedTrigger),
     }),
@@ -58,42 +59,42 @@ CONFIG_SCHEMA = cv.Schema({
 def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     yield cg.register_component(var, config)
-    # yield uart.register_uart_device(var, config)
+    yield uart.register_uart_device(var, config)
     if CONF_PASSWORD in config:
         password = config[CONF_PASSWORD]
         cg.add(var.set_password(password))
 
-    var pin = yield cg.get_variable(config[CONF_SENSING_PIN])
-    cg.add(var.set_sensing_pin(pin))
-    var uart = yield cg.get_variable(config[CONF_UART_ID])
-    cg.add(var.set_uart(uart))
+    sensing_pin = yield cg.gpio_pin_expression(config[CONF_SENSING_PIN])
+    cg.add(var.set_sensing_pin(sensing_pin))
 
     for conf in config.get(CONF_ON_FINGER_SCANNED, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID])
         cg.add(var.register_trigger(trigger))
-        yield automation.build_automation(trigger, [(cg.bool, 'success')
-          (cg.int, 'result'),
-          (cg.int, 'finger_id'),
-          (cg.int, 'confidence')], conf)
+        yield automation.build_automation(trigger, [(cg.bool_, 'success'),
+          (cg.int_, 'result'),
+          (cg.uint16_t, 'finger_id'),
+          (cg.int_, 'confidence')], conf)
 
     for conf in config.get(CONF_ON_ENROLLMENT_SCAN, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID])
         cg.add(var.register_trigger(trigger))
-        yield automation.build_automation(trigger, [(cg.int, 'scan_number'),
-          (cg.int, 'finger_id')], conf)
+        yield automation.build_automation(trigger, [(cg.int_, 'scan_number'),
+          (cg.uint16_t, 'finger_id')], conf)
 
     for conf in config.get(CONF_ON_ENROLLMENT_DONE, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID])
         cg.add(var.register_trigger(trigger))
-        yield automation.build_automation(trigger, [(cg.bool, 'success')
-          (cg.int, 'result'),
-          (cg.int, 'finger_id')], conf)
+        yield automation.build_automation(trigger, [(cg.bool_, 'success'),
+          (cg.int_, 'result'),
+          (cg.uint16_t, 'finger_id')], conf)
 
+    # https://platformio.org/lib/show/382/Adafruit%20Fingerprint%20Sensor%20Library
+    cg.add_library('382', '2.0.3')
 
 FINGER_ENROLL_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.use_id(RxxxComponent),
-    cv.Required(CONF_FINGER_ID): cv.templatable(cv.int),
-    cv.Required(CONF_NUM_SCANS): cv.templatable(cv.int),
+    cv.Required(CONF_FINGER_ID): cv.templatable(cv.uint16_t),
+    cv.Required(CONF_NUM_SCANS): cv.templatable(cv.uint8_t),
 })
 
 
@@ -101,8 +102,8 @@ FINGER_ENROLL_SCHEMA = cv.Schema({
 def rxxx_enroll(config, action_id, template_arg, args):
     paren = yield cg.get_variable(config[CONF_ID])
     var = cg.new_Pvariable(action_id, template_arg, paren)
-    template_ = yield cg.templatable(config[CONF_FINGER_ID], args, cg.int)
+    template_ = yield cg.templatable(config[CONF_FINGER_ID], args, cg.uint16_t)
     cg.add(var.set_finger_id(template_))
-    template_ = yield cg.templatable(config[CONF_NUM_SCANS], args, cg.int)
+    template_ = yield cg.templatable(config[CONF_NUM_SCANS], args, cg.uint8_t)
     cg.add(var.set_num_scans(template_))
     yield var

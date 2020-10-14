@@ -1,12 +1,16 @@
 #pragma once
 
-#include "esphome.h"
-#include "Adafruit_Fingerprint.h"
+#include "esphome/core/component.h"
+#include "esphome/core/automation.h"
+#include "esphome/components/sensor/sensor.h"
+#include "esphome/components/binary_sensor/binary_sensor.h"
+#include "esphome/components/uart/uart.h"
+#include <Adafruit_Fingerprint.h>
 
 namespace esphome {
 namespace rxxx {
 
-class RxxxComponent : public PollingComponent {
+class RxxxComponent : public PollingComponent, public uart::UARTDevice {
   public:
   void update() override;
   void setup() override;
@@ -19,12 +23,8 @@ class RxxxComponent : public PollingComponent {
   void set_last_finger_id_sensor(sensor::Sensor *last_finger_id_sensor) { last_finger_id_sensor_ = last_finger_id_sensor; }
   void set_last_confidence_sensor(sensor::Sensor *last_confidence_sensor) { last_confidence_sensor_ = last_confidence_sensor; }
   void set_enrolling_binary_sensor(binary_sensor::BinarySensor *enrolling_binary_sensor) { enrolling_binary_sensor_ = enrolling_binary_sensor; }
-  void set_sensing_pin(int pin) { sensing_pin_ = pin }
-  void set_password(int password) { password_ = password_ }
-  void set_uart(UARTComponent *uart) {
-    this->uart_ = uart;
-    finger = Adafruit_Fingerprint(uart)
-  }
+  void set_sensing_pin(GPIOPin *sensing_pin) { sensing_pin_ = sensing_pin; }
+  void set_password(uint32_t password) { password_ = password_; }
   void add_on_finger_scanned_callback(std::function<void(bool, int, int, int)> callback) {
     this->finger_scanned_callback_.add(std::move(callback));
   }
@@ -35,38 +35,30 @@ class RxxxComponent : public PollingComponent {
     this->enrollment_callback_.add(std::move(callback));
   }
 
-  void enroll_fingerprint(int finger_id, int num_buffers) {
-    ESP_LOGD(TAG, "Starting enrollment in slot %d", finger_id);
-    enrollementSlot_ = finger_id, enrollementBuffers_ = num_buffers, enrollementImage_ = 1;
-    enrolling_binary_sensor_->publish_state(true);
-  }
+  void enroll_fingerprint(int finger_id, int num_buffers);
 
-  private:
+  protected:
 
   void finish_enrollment(int result);
   void scan_and_match();
   int scan_image(int buffer);
 
-  void get_fingerprint_count() {
-    finger_->getTemplateCount();
-    fingerprint_count_sensor_->publish_state(finger.templateCount);
-  }
+  void get_fingerprint_count();
 
-  UARTComponent *uart_{nullptr};
   Adafruit_Fingerprint *finger_;
-  int password_ = 0x0;
-  int sensing_pin_;
-  int enrollementImage_ = 0;
-  int enrollementSlot_ = 0;
-  int enrollementBuffers_ = 5;
+  uint32_t password_ = 0x0;
+  GPIOPin *sensing_pin_;
+  int enrollmentImage_ = 0;
+  int enrollmentSlot_ = 0;
+  int enrollmentBuffers_ = 5;
   bool waitingRemoval = false;
-  Sensor *fingerprint_count_sensor_;
-  Sensor *status_sensor_;
-  Sensor *capacity_sensor_;
-  Sensor *security_level_sensor_;
-  Sensor *last_finger_id_sensor_;
-  Sensor *last_confidence_sensor_;
-  BinarySensor *enrolling_binary_sensor_;
+  sensor::Sensor *fingerprint_count_sensor_;
+  sensor::Sensor *status_sensor_;
+  sensor::Sensor *capacity_sensor_;
+  sensor::Sensor *security_level_sensor_;
+  sensor::Sensor *last_finger_id_sensor_;
+  sensor::Sensor *last_confidence_sensor_;
+  binary_sensor::BinarySensor *enrolling_binary_sensor_;
   CallbackManager<void(bool, int, int, int)> finger_scanned_callback_;
   CallbackManager<void(bool, int)> enrollment_scan_callback_;
   CallbackManager<void(bool, int, int)> enrollment_callback_;
