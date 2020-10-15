@@ -25,32 +25,32 @@ class RxxxComponent : public PollingComponent, public uart::UARTDevice {
   void set_enrolling_binary_sensor(binary_sensor::BinarySensor *enrolling_binary_sensor) { enrolling_binary_sensor_ = enrolling_binary_sensor; }
   void set_sensing_pin(GPIOPin *sensing_pin) { sensing_pin_ = sensing_pin; }
   void set_password(uint32_t password) { password_ = password_; }
-  void add_on_finger_scanned_callback(std::function<void(bool, int, int, int)> callback) {
+  void add_on_finger_scanned_callback(std::function<void(bool, uint8_t, uint16_t, uint16_t)> callback) {
     this->finger_scanned_callback_.add(std::move(callback));
   }
-  void add_on_enrollment_scan_callback(std::function<void(int, int)> callback) {
+  void add_on_enrollment_scan_callback(std::function<void(uint8_t, uint16_t)> callback) {
     this->enrollment_scan_callback_.add(std::move(callback));
   }
-  void add_on_enrollment_callback(std::function<void(bool, int, int)> callback) {
+  void add_on_enrollment_callback(std::function<void(bool, uint8_t, uint16_t)> callback) {
     this->enrollment_callback_.add(std::move(callback));
   }
 
-  void enroll_fingerprint(int finger_id, int num_buffers);
+  void enroll_fingerprint(uint16_t finger_id, uint8_t num_buffers);
 
   protected:
 
-  void finish_enrollment(int result);
+  void finish_enrollment(uint8_t result);
   void scan_and_match();
-  int scan_image(int buffer);
+  uint8_t scan_image(uint8_t buffer);
 
   void get_fingerprint_count();
 
   Adafruit_Fingerprint *finger_;
   uint32_t password_ = 0x0;
   GPIOPin *sensing_pin_;
-  int enrollmentImage_ = 0;
-  int enrollmentSlot_ = 0;
-  int enrollmentBuffers_ = 5;
+  uint8_t enrollmentImage_ = 0;
+  uint16_t enrollmentSlot_ = 0;
+  uint8_t enrollmentBuffers_ = 5;
   bool waitingRemoval = false;
   sensor::Sensor *fingerprint_count_sensor_;
   sensor::Sensor *status_sensor_;
@@ -59,36 +59,36 @@ class RxxxComponent : public PollingComponent, public uart::UARTDevice {
   sensor::Sensor *last_finger_id_sensor_;
   sensor::Sensor *last_confidence_sensor_;
   binary_sensor::BinarySensor *enrolling_binary_sensor_;
-  CallbackManager<void(bool, int, int, int)> finger_scanned_callback_;
-  CallbackManager<void(bool, int)> enrollment_scan_callback_;
-  CallbackManager<void(bool, int, int)> enrollment_callback_;
+  CallbackManager<void(bool, uint8_t, uint16_t, uint16_t)> finger_scanned_callback_;
+  CallbackManager<void(uint8_t, uint16_t)> enrollment_scan_callback_;
+  CallbackManager<void(bool, uint8_t, uint16_t)> enrollment_callback_;
 };
 
-class FingerScannedTrigger : public Trigger<bool, int, int, int> {
+class FingerScannedTrigger : public Trigger<bool, uint8_t, uint16_t, uint16_t> {
  public:
   explicit FingerScannedTrigger(RxxxComponent *parent) {
     parent->add_on_finger_scanned_callback(
-        [this](bool success, int result, int finger_id, int confidence) {
+        [this](bool success, uint8_t result, uint16_t finger_id, uint16_t confidence) {
           this->trigger(success, result, finger_id, confidence);
         });
   }
 };
 
-class EnrollmentScanTrigger : public Trigger<int, int> {
+class EnrollmentScanTrigger : public Trigger<uint8_t, uint16_t> {
  public:
   explicit EnrollmentScanTrigger(RxxxComponent *parent) {
     parent->add_on_enrollment_scan_callback(
-        [this](int scan_number, int finger_id) {
+        [this](uint8_t scan_number, uint16_t finger_id) {
           this->trigger(scan_number, finger_id);
         });
   }
 };
 
-class EnrollmentTrigger : public Trigger<bool, int, int> {
+class EnrollmentTrigger : public Trigger<bool, uint8_t, uint16_t> {
  public:
   explicit EnrollmentTrigger(RxxxComponent *parent) {
     parent->add_on_enrollment_callback(
-        [this](bool success, int result, int finger_id) {
+        [this](bool success, uint8_t result, uint16_t finger_id) {
           this->trigger(success, result, finger_id);
         });
   }
@@ -97,8 +97,8 @@ class EnrollmentTrigger : public Trigger<bool, int, int> {
 template<typename... Ts> class FingerprintEnrollAction : public Action<Ts...> {
  public:
   FingerprintEnrollAction(RxxxComponent *parent) : parent_(parent) {}
-  TEMPLATABLE_VALUE(int, finger_id)
-  TEMPLATABLE_VALUE(int, num_scans)
+  TEMPLATABLE_VALUE(uint16_t, finger_id)
+  TEMPLATABLE_VALUE(uint8_t, num_scans)
 
   void play(Ts... x) {
     auto finger_id = this->finger_id.value(x...);

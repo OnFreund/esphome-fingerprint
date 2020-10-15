@@ -23,20 +23,20 @@ RxxxComponent = rxxx_ns.class_('RxxxComponent', cg.PollingComponent, uart.UARTDe
 ScannedTrigger = rxxx_ns.class_('FingerScannedTrigger',
   automation.Trigger.template(
     cg.bool_,
-    cg.int_,
-    cg.int_,
-    cg.int_))
+    cg.uint8,
+    cg.uint16,
+    cg.uint16))
 
 EnrollmentScanTrigger = rxxx_ns.class_('EnrollmentScanTrigger',
   automation.Trigger.template(
-    cg.int_,
-    cg.int_))
+    cg.uint8,
+    cg.uint16))
 
 EnrollmentTrigger = rxxx_ns.class_('EnrollmentTrigger',
   automation.Trigger.template(
     cg.bool_,
-    cg.int_,
-    cg.int_))
+    cg.uint8,
+    cg.uint16))
 
 EnrollmentAction = rxxx_ns.class_('FingerprintEnrollAction', automation.Action)
 
@@ -71,22 +71,22 @@ def to_code(config):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID])
         cg.add(var.register_trigger(trigger))
         yield automation.build_automation(trigger, [(cg.bool_, 'success'),
-          (cg.int_, 'result'),
-          (cg.uint16_t, 'finger_id'),
-          (cg.int_, 'confidence')], conf)
+          (cg.uint8, 'result'),
+          (cg.uint16, 'finger_id'),
+          (cg.uint16, 'confidence')], conf)
 
     for conf in config.get(CONF_ON_ENROLLMENT_SCAN, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID])
         cg.add(var.register_trigger(trigger))
-        yield automation.build_automation(trigger, [(cg.int_, 'scan_number'),
-          (cg.uint16_t, 'finger_id')], conf)
+        yield automation.build_automation(trigger, [(cg.uint8, 'scan_number'),
+          (cg.uint16, 'finger_id')], conf)
 
     for conf in config.get(CONF_ON_ENROLLMENT_DONE, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID])
         cg.add(var.register_trigger(trigger))
         yield automation.build_automation(trigger, [(cg.bool_, 'success'),
-          (cg.int_, 'result'),
-          (cg.uint16_t, 'finger_id')], conf)
+          (cg.uint8, 'result'),
+          (cg.uint16, 'finger_id')], conf)
 
     # https://platformio.org/lib/show/382/Adafruit%20Fingerprint%20Sensor%20Library
     cg.add_library('382', '2.0.3')
@@ -102,8 +102,8 @@ FINGER_ENROLL_SCHEMA = cv.Schema({
 def rxxx_enroll(config, action_id, template_arg, args):
     paren = yield cg.get_variable(config[CONF_ID])
     var = cg.new_Pvariable(action_id, template_arg, paren)
-    template_ = yield cg.templatable(config[CONF_FINGER_ID], args, cg.uint16_t)
+    template_ = yield cg.templatable(config[CONF_FINGER_ID], args, cg.uint16)
     cg.add(var.set_finger_id(template_))
-    template_ = yield cg.templatable(config[CONF_NUM_SCANS], args, cg.uint8_t)
+    template_ = yield cg.templatable(config[CONF_NUM_SCANS], args, cg.uint8)
     cg.add(var.set_num_scans(template_))
     yield var
