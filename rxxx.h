@@ -25,6 +25,7 @@ class RxxxComponent : public PollingComponent, public uart::UARTDevice {
   void set_enrolling_binary_sensor(binary_sensor::BinarySensor *enrolling_binary_sensor) { enrolling_binary_sensor_ = enrolling_binary_sensor; }
   void set_sensing_pin(GPIOPin *sensing_pin) { sensing_pin_ = sensing_pin; }
   void set_password(uint32_t password) { password_ = password_; }
+  void set_uart(Stream *uart_device) { finger_ = new Adafruit_Fingerprint(uart_device, password_); }
   void add_on_finger_scanned_callback(std::function<void(bool, uint8_t, uint16_t, uint16_t)> callback) {
     this->finger_scanned_callback_.add(std::move(callback));
   }
