@@ -83,11 +83,12 @@ void RxxxComponent::finish_enrollment(uint8_t result) {
 
 void RxxxComponent::scan_and_match() {
   uint8_t result = scan_image(1);
-  int finger_id = -1;
+  uint16_t finger_id = 0;
   uint16_t confidence = 0;
   if (result == FINGERPRINT_NOFINGER) {
     return;
   }
+  waitingRemoval = true;
   if (result == FINGERPRINT_OK) {
     result = finger_->fingerSearch();
     if (result == FINGERPRINT_OK) {
@@ -97,7 +98,6 @@ void RxxxComponent::scan_and_match() {
       last_confidence_sensor_->publish_state(confidence);
     }
   }
-  waitingRemoval = true;
   this->finger_scanned_callback_.call(result == FINGERPRINT_OK, result, finger_id, confidence);
 }
 

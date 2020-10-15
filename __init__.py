@@ -59,10 +59,11 @@ CONFIG_SCHEMA = cv.Schema({
 def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     yield cg.register_component(var, config)
-    yield uart.register_uart_device(var, config)
     if CONF_PASSWORD in config:
         password = config[CONF_PASSWORD]
         cg.add(var.set_password(password))
+    uart_device = yield uart.register_uart_device(var, config)
+    cg.add(var.set_uart(uart_device))
 
     sensing_pin = yield cg.gpio_pin_expression(config[CONF_SENSING_PIN])
     cg.add(var.set_sensing_pin(sensing_pin))
@@ -89,7 +90,7 @@ def to_code(config):
           (cg.uint16, 'finger_id')], conf)
 
     # https://platformio.org/lib/show/382/Adafruit%20Fingerprint%20Sensor%20Library
-    cg.add_library('382', '2.0.3')
+    cg.add_library('https://github.com/adafruit/Adafruit-Fingerprint-Sensor-Library.git', None)
 
 FINGER_ENROLL_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.use_id(RxxxComponent),
