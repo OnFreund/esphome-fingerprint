@@ -7,7 +7,7 @@ from esphome.const import CONF_ID, CONF_PASSWORD, CONF_TRIGGER_ID, CONF_UART_ID
 
 CODEOWNERS = ['@OnFreund', '@loongyh']
 DEPENDENCIES = ['uart']
-AUTO_LOAD = ['sensor', 'binary_sensor']
+AUTO_LOAD = ['binary_sensor', 'sensor']
 MULTI_CONF = True
 
 CONF_SENSING_PIN = "sensing_pin"
