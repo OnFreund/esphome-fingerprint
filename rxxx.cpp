@@ -17,7 +17,7 @@ void RxxxComponent::update() {
 
   if (enrollmentImage_ > enrollmentBuffers_) {
     ESP_LOGI(TAG, "Creating model");
-    int result = finger_->createModel();
+    uint8_t result = finger_->createModel();
     if (result == FINGERPRINT_OK) {
       ESP_LOGI(TAG, "Storing model");
       result = finger_->storeModel(enrollmentSlot_);
@@ -43,7 +43,7 @@ void RxxxComponent::update() {
     return;
   }
 
-  int result = scan_image(enrollmentImage_);
+  uint8_t result = scan_image(enrollmentImage_);
   if (result == FINGERPRINT_NOFINGER) {
     return;
   }
@@ -68,13 +68,13 @@ void RxxxComponent::setup() {
   get_fingerprint_count();
 }
 
-void RxxxComponent::enroll_fingerprint(int finger_id, int num_buffers) {
+void RxxxComponent::enroll_fingerprint(uint16_t finger_id, uint8_t num_buffers) {
   ESP_LOGD(TAG, "Starting enrollment in slot %d", finger_id);
   enrollmentSlot_ = finger_id, enrollmentBuffers_ = num_buffers, enrollmentImage_ = 1;
   enrolling_binary_sensor_->publish_state(true);
 }
 
-void RxxxComponent::finish_enrollment(int result) {
+void RxxxComponent::finish_enrollment(uint8_t result) {
   this->enrollment_callback_.call(result == FINGERPRINT_OK, result, enrollmentSlot_);
   enrollmentImage_ = 0;
   enrollmentSlot_ = 0;
@@ -82,9 +82,9 @@ void RxxxComponent::finish_enrollment(int result) {
 }
 
 void RxxxComponent::scan_and_match() {
-  int result = scan_image(1);
+  uint8_t result = scan_image(1);
   int finger_id = -1;
-  int confidence = 0;
+  uint16_t confidence = 0;
   if (result == FINGERPRINT_NOFINGER) {
     return;
   }
@@ -101,9 +101,9 @@ void RxxxComponent::scan_and_match() {
   this->finger_scanned_callback_.call(result == FINGERPRINT_OK, result, finger_id, confidence);
 }
 
-int RxxxComponent::scan_image(int buffer) {
+uint8_t RxxxComponent::scan_image(uint8_t buffer) {
   ESP_LOGD(TAG, "Getting image %d", buffer);
-  int p = finger_->getImage();
+  uint8_t p = finger_->getImage();
   if (p != FINGERPRINT_OK) {
     ESP_LOGD(TAG, "No image. Result: %d", p);
     return p;
