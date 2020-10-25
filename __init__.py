@@ -20,7 +20,7 @@ CONF_RXXX_ID = 'rxxx_id'
 
 rxxx_ns = cg.esphome_ns.namespace('rxxx')
 RxxxComponent = rxxx_ns.class_('RxxxComponent', cg.PollingComponent, uart.UARTDevice)
-ScannedTrigger = rxxx_ns.class_('FingerScannedTrigger',
+FingerScannedTrigger = rxxx_ns.class_('FingerScannedTrigger',
   automation.Trigger.template(
     cg.bool_,
     cg.uint8,
@@ -32,26 +32,28 @@ EnrollmentScanTrigger = rxxx_ns.class_('EnrollmentScanTrigger',
     cg.uint8,
     cg.uint16))
 
-EnrollmentTrigger = rxxx_ns.class_('EnrollmentTrigger',
+EnrollmentDoneTrigger = rxxx_ns.class_('EnrollmentDoneTrigger',
   automation.Trigger.template(
     cg.bool_,
     cg.uint8,
     cg.uint16))
 
-EnrollmentAction = rxxx_ns.class_('FingerprintEnrollAction', automation.Action)
+EnrollmentAction = rxxx_ns.class_('EnrollmentAction', automation.Action)
+CancelEnrollmentAction = rxxx_ns.class_('CancelEnrollmentAction', automation.Action)
+DeleteAllAction = rxxx_ns.class_('DeleteAllAction', automation.Action)
 
 CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.declare_id(RxxxComponent),
-    cv.Required(CONF_SENSING_PIN): pins.gpio_input_pin_schema,
+    cv.Optional(CONF_SENSING_PIN): pins.gpio_input_pin_schema,
     cv.Optional(CONF_PASSWORD): cv.uint32_t,
     cv.Optional(CONF_ON_FINGER_SCANNED): automation.validate_automation({
-        cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(ScannedTrigger),
+        cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(FingerScannedTrigger),
     }),
     cv.Optional(CONF_ON_ENROLLMENT_SCAN): automation.validate_automation({
         cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(EnrollmentScanTrigger),
     }),
     cv.Optional(CONF_ON_ENROLLMENT_DONE): automation.validate_automation({
-        cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(EnrollmentTrigger),
+        cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(EnrollmentDoneTrigger),
     }),
 }).extend(cv.polling_component_schema('500ms')).extend(uart.UART_DEVICE_SCHEMA)
 
@@ -65,46 +67,61 @@ def to_code(config):
     uart_device = yield uart.register_uart_device(var, config)
     cg.add(var.set_uart(uart_device))
 
-    sensing_pin = yield cg.gpio_pin_expression(config[CONF_SENSING_PIN])
-    cg.add(var.set_sensing_pin(sensing_pin))
+    if CONF_SENSING_PIN in config:
+        sensing_pin = yield cg.gpio_pin_expression(config[CONF_SENSING_PIN])
+        cg.add(var.set_sensing_pin(sensing_pin))
 
     for conf in config.get(CONF_ON_FINGER_SCANNED, []):
-        trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID])
-        cg.add(var.register_trigger(trigger))
+        trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         yield automation.build_automation(trigger, [(cg.bool_, 'success'),
           (cg.uint8, 'result'),
           (cg.uint16, 'finger_id'),
           (cg.uint16, 'confidence')], conf)
 
     for conf in config.get(CONF_ON_ENROLLMENT_SCAN, []):
-        trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID])
-        cg.add(var.register_trigger(trigger))
+        trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         yield automation.build_automation(trigger, [(cg.uint8, 'scan_number'),
           (cg.uint16, 'finger_id')], conf)
 
     for conf in config.get(CONF_ON_ENROLLMENT_DONE, []):
-        trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID])
-        cg.add(var.register_trigger(trigger))
+        trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         yield automation.build_automation(trigger, [(cg.bool_, 'success'),
           (cg.uint8, 'result'),
           (cg.uint16, 'finger_id')], conf)
 
     # https://platformio.org/lib/show/382/Adafruit%20Fingerprint%20Sensor%20Library
-    cg.add_library('https://github.com/adafruit/Adafruit-Fingerprint-Sensor-Library.git', None)
+    cg.add_library('382', '2.0.4')
 
-FINGER_ENROLL_SCHEMA = cv.Schema({
+
+@automation.register_action('rxxx.enroll', EnrollmentAction, cv.Schema({
     cv.GenerateID(): cv.use_id(RxxxComponent),
     cv.Required(CONF_FINGER_ID): cv.templatable(cv.uint16_t),
-    cv.Required(CONF_NUM_SCANS): cv.templatable(cv.uint8_t),
-})
-
-
-@automation.register_action('rxxx.enroll', EnrollmentAction, FINGER_ENROLL_SCHEMA)
-def rxxx_enroll(config, action_id, template_arg, args):
-    paren = yield cg.get_variable(config[CONF_ID])
-    var = cg.new_Pvariable(action_id, template_arg, paren)
+    cv.Optional(CONF_NUM_SCANS): cv.templatable(cv.uint8_t),
+}))
+def rxxx_enroll_to_code(config, action_id, template_arg, args):
+    var = cg.new_Pvariable(action_id, template_arg)
+    yield cg.register_parented(var, config[CONF_ID])
     template_ = yield cg.templatable(config[CONF_FINGER_ID], args, cg.uint16)
     cg.add(var.set_finger_id(template_))
-    template_ = yield cg.templatable(config[CONF_NUM_SCANS], args, cg.uint8)
-    cg.add(var.set_num_scans(template_))
+    if CONF_NUM_SCANS in config:
+        template_ = yield cg.templatable(config[CONF_NUM_SCANS], args, cg.uint8)
+        cg.add(var.set_num_scans(template_))
+    yield var
+
+
+@automation.register_action('rxxx.cancel_enroll', CancelEnrollmentAction, cv.Schema({
+    cv.GenerateID(): cv.use_id(RxxxComponent),
+}))
+def rxxx_cancel_enroll_to_code(config, action_id, template_arg, args):
+    var = cg.new_Pvariable(action_id, template_arg)
+    yield cg.register_parented(var, config[CONF_ID])
+    yield var
+
+
+@automation.register_action('rxxx.delete_all', DeleteAllAction, cv.Schema({
+    cv.GenerateID(): cv.use_id(RxxxComponent),
+}))
+def rxxx_delete_all_to_code(config, action_id, template_arg, args):
+    var = cg.new_Pvariable(action_id, template_arg)
+    yield cg.register_parented(var, config[CONF_ID])
     yield var

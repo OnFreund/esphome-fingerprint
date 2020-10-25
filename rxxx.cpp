@@ -8,19 +8,20 @@ namespace rxxx {
 static const char* TAG = "rxxx";
 
 void RxxxComponent::update() {
-  if (waitingRemoval) {
-    if (finger_->getImage() == FINGERPRINT_NOFINGER) {
-      waitingRemoval = false;
+  if (this->waitingRemoval) {
+    if (this->finger_->getImage() == FINGERPRINT_NOFINGER) {
+      ESP_LOGD(TAG, "Finger removed");
+      this->waitingRemoval = false;
     }
     return;
   }
 
-  if (enrollmentImage_ > enrollmentBuffers_) {
+  if (this->enrollmentImage_ > this->enrollmentBuffers_) {
     ESP_LOGI(TAG, "Creating model");
-    uint8_t result = finger_->createModel();
+    uint8_t result = this->finger_->createModel();
     if (result == FINGERPRINT_OK) {
       ESP_LOGI(TAG, "Storing model");
-      result = finger_->storeModel(enrollmentSlot_);
+      result = this->finger_->storeModel(this->enrollmentSlot_);
       if (result == FINGERPRINT_OK) {
         ESP_LOGI(TAG, "Stored model");
       } else {
@@ -29,7 +30,7 @@ void RxxxComponent::update() {
     } else {
       ESP_LOGE(TAG, "Error creating model: %d", result);
     }
-    finish_enrollment(result);
+    this->finish_enrollment(result);
     return;
   }
 
@@ -38,64 +39,70 @@ void RxxxComponent::update() {
     return;
   }
 
-  if (enrollmentImage_ == 0) {
-    scan_and_match();
+  if (this->enrollmentImage_ == 0) {
+    ESP_LOGD(TAG, "Scan and match");
+    this->scan_and_match();
     return;
   }
 
-  uint8_t result = scan_image(enrollmentImage_);
+  uint8_t result = this->scan_image(this->enrollmentImage_);
   if (result == FINGERPRINT_NOFINGER) {
     return;
   }
-  waitingRemoval = true;
+  this->waitingRemoval = true;
   if (result != FINGERPRINT_OK) {
-    finish_enrollment(result);
+    this->finish_enrollment(result);
     return;
   }
-  this->enrollment_scan_callback_.call(enrollmentImage_, enrollmentSlot_);
-  ++enrollmentImage_;
+  this->enrollment_scan_callback_.call(this->enrollmentImage_, this->enrollmentSlot_);
+  ++this->enrollmentImage_;
 }
 
 void RxxxComponent::setup() {
-  if (!finger_->verifyPassword()) {
+  ESP_LOGCONFIG(TAG, "Setting up Rxxx Fingerprint Sensor...");
+  if (!this->finger_->verifyPassword()) {
     ESP_LOGE(TAG, "Could not find fingerprint sensor");
+    this->mark_failed();
   }
-  finger_->getParameters();
-  status_sensor_->publish_state(finger_->status_reg);
-  capacity_sensor_->publish_state(finger_->capacity);
-  security_level_sensor_->publish_state(finger_->security_level);
-  enrolling_binary_sensor_->publish_state(false);
-  get_fingerprint_count();
+  this->finger_->getParameters();
+  this->status_sensor_->publish_state(this->finger_->status_reg);
+  this->capacity_sensor_->publish_state(this->finger_->capacity);
+  this->security_level_sensor_->publish_state(this->finger_->security_level);
+  this->enrolling_binary_sensor_->publish_state(false);
+  this->get_fingerprint_count();
 }
 
 void RxxxComponent::enroll_fingerprint(uint16_t finger_id, uint8_t num_buffers) {
   ESP_LOGD(TAG, "Starting enrollment in slot %d", finger_id);
-  enrollmentSlot_ = finger_id, enrollmentBuffers_ = num_buffers, enrollmentImage_ = 1;
-  enrolling_binary_sensor_->publish_state(true);
+  this->enrolling_binary_sensor_->publish_state(true);
+  this->enrollmentSlot_ = finger_id, this->enrollmentBuffers_ = num_buffers, this->enrollmentImage_ = 1;
 }
 
 void RxxxComponent::finish_enrollment(uint8_t result) {
-  this->enrollment_callback_.call(result == FINGERPRINT_OK, result, enrollmentSlot_);
-  enrollmentImage_ = 0;
-  enrollmentSlot_ = 0;
-  enrolling_binary_sensor_->publish_state(false);
+  this->enrollment_done_callback_.call(result == FINGERPRINT_OK, result, this->enrollmentSlot_);
+  this->enrollmentImage_ = 0;
+  this->enrollmentSlot_ = 0;
+  this->get_fingerprint_count();
+  this->enrolling_binary_sensor_->publish_state(false);
 }
 
 void RxxxComponent::scan_and_match() {
-  uint8_t result = scan_image(1);
-  uint16_t finger_id = 0;
-  uint16_t confidence = 0;
+  uint8_t result = this->scan_image(1);
+  ESP_LOGD(TAG, "Image scanned");
   if (result == FINGERPRINT_NOFINGER) {
     return;
   }
-  waitingRemoval = true;
+  int finger_id = -1;
+  uint16_t confidence = 0;
+  this->waitingRemoval = true;
   if (result == FINGERPRINT_OK) {
-    result = finger_->fingerSearch();
+    result = this->finger_->fingerSearch();
+    ESP_LOGD(TAG, "Finger searched");
     if (result == FINGERPRINT_OK) {
-      finger_id = finger_->fingerID;
-      last_finger_id_sensor_->publish_state(finger_id);
-      confidence = finger_->confidence;
-      last_confidence_sensor_->publish_state(confidence);
+      finger_id = this->finger_->fingerID;
+      this->last_finger_id_sensor_->publish_state(finger_id);
+      confidence = this->finger_->confidence;
+      this->last_confidence_sensor_->publish_state(confidence);
     }
   }
   this->finger_scanned_callback_.call(result == FINGERPRINT_OK, result, finger_id, confidence);
@@ -103,14 +110,14 @@ void RxxxComponent::scan_and_match() {
 
 uint8_t RxxxComponent::scan_image(uint8_t buffer) {
   ESP_LOGD(TAG, "Getting image %d", buffer);
-  uint8_t p = finger_->getImage();
+  uint8_t p = this->finger_->getImage();
   if (p != FINGERPRINT_OK) {
     ESP_LOGD(TAG, "No image. Result: %d", p);
     return p;
   }
 
   ESP_LOGD(TAG, "Processing image %d", buffer);
-  p = finger_->image2Tz(buffer);
+  p = this->finger_->image2Tz(buffer);
   switch (p) {
     case FINGERPRINT_OK:
       ESP_LOGI(TAG, "Processed image %d", buffer);
@@ -132,8 +139,19 @@ uint8_t RxxxComponent::scan_image(uint8_t buffer) {
 }
 
 void RxxxComponent::get_fingerprint_count() {
-  finger_->getTemplateCount();
-  fingerprint_count_sensor_->publish_state(finger_->templateCount);
+  this->finger_->getTemplateCount();
+  this->fingerprint_count_sensor_->publish_state(this->finger_->templateCount);
+}
+
+void RxxxComponent::delete_all_fingerprints() {
+  ESP_LOGI(TAG, "Deleting all stored fingerprints");
+  uint8_t result = this->finger_->emptyDatabase();
+    if (result == FINGERPRINT_OK) {
+      ESP_LOGI(TAG, "Successfully deleted all fingerprints");
+      this->get_fingerprint_count();
+    } else {
+      ESP_LOGE(TAG, "Error deleting all fingerprints: %d", result);
+    }
 }
 
 void RxxxComponent::dump_config() {

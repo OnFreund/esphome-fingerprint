@@ -32,15 +32,16 @@ class RxxxComponent : public PollingComponent, public uart::UARTDevice {
   void add_on_enrollment_scan_callback(std::function<void(uint8_t, uint16_t)> callback) {
     this->enrollment_scan_callback_.add(std::move(callback));
   }
-  void add_on_enrollment_callback(std::function<void(bool, uint8_t, uint16_t)> callback) {
-    this->enrollment_callback_.add(std::move(callback));
+  void add_on_enrollment_done_callback(std::function<void(bool, uint8_t, uint16_t)> callback) {
+    this->enrollment_done_callback_.add(std::move(callback));
   }
 
   void enroll_fingerprint(uint16_t finger_id, uint8_t num_buffers);
+  void finish_enrollment(uint8_t result);
+  void delete_all_fingerprints();
 
   protected:
 
-  void finish_enrollment(uint8_t result);
   void scan_and_match();
   uint8_t scan_image(uint8_t buffer);
 
@@ -62,7 +63,7 @@ class RxxxComponent : public PollingComponent, public uart::UARTDevice {
   binary_sensor::BinarySensor *enrolling_binary_sensor_;
   CallbackManager<void(bool, uint8_t, uint16_t, uint16_t)> finger_scanned_callback_;
   CallbackManager<void(uint8_t, uint16_t)> enrollment_scan_callback_;
-  CallbackManager<void(bool, uint8_t, uint16_t)> enrollment_callback_;
+  CallbackManager<void(bool, uint8_t, uint16_t)> enrollment_done_callback_;
 };
 
 class FingerScannedTrigger : public Trigger<bool, uint8_t, uint16_t, uint16_t> {
@@ -85,30 +86,40 @@ class EnrollmentScanTrigger : public Trigger<uint8_t, uint16_t> {
   }
 };
 
-class EnrollmentTrigger : public Trigger<bool, uint8_t, uint16_t> {
+class EnrollmentDoneTrigger : public Trigger<bool, uint8_t, uint16_t> {
  public:
-  explicit EnrollmentTrigger(RxxxComponent *parent) {
-    parent->add_on_enrollment_callback(
+  explicit EnrollmentDoneTrigger(RxxxComponent *parent) {
+    parent->add_on_enrollment_done_callback(
         [this](bool success, uint8_t result, uint16_t finger_id) {
           this->trigger(success, result, finger_id);
         });
   }
 };
 
-template<typename... Ts> class FingerprintEnrollAction : public Action<Ts...> {
+template<typename... Ts> class EnrollmentAction : public Action<Ts...>, public Parented<RxxxComponent> {
  public:
-  FingerprintEnrollAction(RxxxComponent *parent) : parent_(parent) {}
   TEMPLATABLE_VALUE(uint16_t, finger_id)
   TEMPLATABLE_VALUE(uint8_t, num_scans)
 
-  void play(Ts... x) {
-    auto finger_id = this->finger_id.value(x...);
-    auto num_scans = this->num_scans.value(x...);
-    this->parent_->enroll_fingerprint(finger_id, num_scans);
+  void play(Ts... x) override {
+    auto finger_id = this->finger_id_.value(x...);
+    auto num_scans = this->num_scans_.value(x...);
+    if (num_scans) {
+      this->parent_->enroll_fingerprint(finger_id, num_scans);
+    } else {
+      this->parent_->enroll_fingerprint(finger_id, 2);
+    }
   }
+};
 
- protected:
-  RxxxComponent *parent_;
+template<typename... Ts> class CancelEnrollmentAction : public Action<Ts...>, public Parented<RxxxComponent> {
+ public:
+  void play(Ts... x) override { this->parent_->finish_enrollment(1); }
+};
+
+template<typename... Ts> class DeleteAllAction : public Action<Ts...>, public Parented<RxxxComponent> {
+ public:
+  void play(Ts... x) override { this->parent_->delete_all_fingerprints(); }
 };
 
 }  // namespace rxxx
