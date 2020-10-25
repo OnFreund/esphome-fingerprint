@@ -5,7 +5,7 @@
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
 #include "esphome/components/uart/uart.h"
-#include <Adafruit_Fingerprint.h>
+#include "Adafruit_Fingerprint.h"
 
 namespace esphome {
 namespace rxxx {
@@ -42,18 +42,18 @@ class RxxxComponent : public PollingComponent, public uart::UARTDevice {
 
   protected:
 
-  void scan_and_match();
-  uint8_t scan_image(uint8_t buffer);
+  void scan_and_match_();
+  uint8_t scan_image_(uint8_t buffer);
 
-  void get_fingerprint_count();
+  void get_fingerprint_count_();
 
   Adafruit_Fingerprint *finger_;
   uint32_t password_ = 0x0;
   GPIOPin *sensing_pin_;
-  uint8_t enrollmentImage_ = 0;
-  uint16_t enrollmentSlot_ = 0;
-  uint8_t enrollmentBuffers_ = 5;
-  bool waitingRemoval = false;
+  uint8_t enrollment_image_ = 0;
+  uint16_t enrollment_slot_ = 0;
+  uint8_t enrollment_buffers_ = 5;
+  bool waiting_removal_ = false;
   sensor::Sensor *fingerprint_count_sensor_;
   sensor::Sensor *status_sensor_;
   sensor::Sensor *capacity_sensor_;
