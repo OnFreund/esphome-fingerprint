@@ -34,13 +34,15 @@ void RxxxComponent::update() {
     return;
   }
 
-  if (this->sensing_pin_->digital_read() == HIGH) {
-    ESP_LOGV(TAG, "No touch sensing");
-    return;
+  if (this->sensing_pin_ != nullptr) {
+    if (this->sensing_pin_->digital_read() == HIGH) {
+      ESP_LOGV(TAG, "No touch sensing");
+      return;
+    }
   }
 
   if (this->enrollment_image_ == 0) {
-    ESP_LOGD(TAG, "Scan and match");
+    ESP_LOGV(TAG, "Scan and match");
     this->scan_and_match_();
     return;
   }
@@ -88,7 +90,7 @@ void RxxxComponent::finish_enrollment(uint8_t result) {
 
 void RxxxComponent::scan_and_match_() {
   uint8_t result = this->scan_image_(1);
-  ESP_LOGD(TAG, "Image scanned");
+  ESP_LOGV(TAG, "Image scanned");
   if (result == FINGERPRINT_NOFINGER) {
     return;
   }
@@ -109,10 +111,10 @@ void RxxxComponent::scan_and_match_() {
 }
 
 uint8_t RxxxComponent::scan_image_(uint8_t buffer) {
-  ESP_LOGD(TAG, "Getting image %d", buffer);
+  ESP_LOGV(TAG, "Getting image %d", buffer);
   uint8_t p = this->finger_->getImage();
   if (p != FINGERPRINT_OK) {
-    ESP_LOGD(TAG, "No image. Result: %d", p);
+    ESP_LOGV(TAG, "No image. Result: %d", p);
     return p;
   }
 
