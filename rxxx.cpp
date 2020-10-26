@@ -24,6 +24,7 @@ void RxxxComponent::update() {
       result = this->finger_->storeModel(this->enrollment_slot_);
       if (result == FINGERPRINT_OK) {
         ESP_LOGI(TAG, "Stored model");
+        this->get_fingerprint_count_();
       } else {
         switch (result) {
           case FINGERPRINT_PACKETRECIEVEERR:
@@ -107,7 +108,6 @@ void RxxxComponent::finish_enrollment(uint8_t result) {
   this->enrollment_done_callback_.call(result == FINGERPRINT_OK, result, this->enrollment_slot_);
   this->enrollment_image_ = 0;
   this->enrollment_slot_ = 0;
-  this->get_fingerprint_count_();
   this->enrolling_binary_sensor_->publish_state(false);
   ESP_LOGD(TAG, "Finished enrollment");
 }
@@ -117,17 +117,14 @@ void RxxxComponent::scan_and_match_() {
   if (result == FINGERPRINT_NOFINGER) {
     return;
   }
-  int finger_id = -1;
-  uint16_t confidence = 0;
   this->waiting_removal_ = true;
   if (result == FINGERPRINT_OK) {
     result = this->finger_->fingerSearch();
     ESP_LOGD(TAG, "Finger searched");
     if (result == FINGERPRINT_OK) {
-      finger_id = this->finger_->fingerID;
-      this->last_finger_id_sensor_->publish_state(finger_id);
-      confidence = this->finger_->confidence;
-      this->last_confidence_sensor_->publish_state(confidence);
+      this->last_finger_id_sensor_->publish_state(this->finger_->fingerID);
+      this->last_confidence_sensor_->publish_state(this->finger_->confidence);
+      this->finger_scan_matched_callback_.call(this->finger_->fingerID, this->finger_->confidence);
     } else {
       switch (result) {
         case FINGERPRINT_PACKETRECIEVEERR:
@@ -135,13 +132,13 @@ void RxxxComponent::scan_and_match_() {
           break;
         case FINGERPRINT_NOTFOUND:
           ESP_LOGD(TAG, "Fingerprint not matched to any saved slots");
+          this->finger_scan_unmatched_callback_.call();
           break;
         default:
           ESP_LOGE(TAG, "Unknown error: %d", result);
       }
     }
   }
-  this->finger_scanned_callback_.call(result == FINGERPRINT_OK, result, finger_id, confidence);
 }
 
 uint8_t RxxxComponent::scan_image_(uint8_t buffer) {
@@ -204,7 +201,7 @@ void RxxxComponent::delete_all_fingerprints() {
   uint8_t result = this->finger_->emptyDatabase();
   switch (result) {
     case FINGERPRINT_OK:
-      ESP_LOGI(TAG, "Successfully deleted all fingerprints");
+      ESP_LOGI(TAG, "Deleted all fingerprints");
       this->get_fingerprint_count_();
       break;
     case FINGERPRINT_PACKETRECIEVEERR:
@@ -212,6 +209,20 @@ void RxxxComponent::delete_all_fingerprints() {
       break;
     case FINGERPRINT_DBCLEARFAIL:
       ESP_LOGE(TAG, "Failed to clear fingerprint library");
+      break;
+    default:
+      ESP_LOGE(TAG, "Unknown error: %d", result);
+  }
+}
+
+void RxxxComponent::aura_led_control(uint8_t state, uint8_t speed, uint8_t color, uint8_t count) {
+  uint8_t result = this->finger_->LEDcontrol(state, speed, color, count);
+  switch (result) {
+    case FINGERPRINT_OK:
+      ESP_LOGI(TAG, "Aura LED set");
+      break;
+    case FINGERPRINT_PACKETRECIEVEERR:
+      ESP_LOGE(TAG, "Communication error");
       break;
     default:
       ESP_LOGE(TAG, "Unknown error: %d", result);
