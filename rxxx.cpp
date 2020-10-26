@@ -151,30 +151,25 @@ uint8_t RxxxComponent::scan_image_(uint8_t buffer) {
     ESP_LOGV(TAG, "Getting image %d", buffer);
   }
   uint8_t p = this->finger_->getImage();
-  switch (p) {
-    case FINGERPRINT_OK:
-      if (this->sensing_pin_ != nullptr) {
-        ESP_LOGD(TAG, "Finger scanned");
-      } else {
-        ESP_LOGV(TAG, "Finger scanned");
-      }
-      return p;
-    case FINGERPRINT_PACKETRECIEVEERR:
-      ESP_LOGE(TAG, "Communication error");
-      return p;
-    case FINGERPRINT_NOFINGER:
-      if (this->sensing_pin_ != nullptr) {
-        ESP_LOGD(TAG, "No finger");
-      } else {
-        ESP_LOGV(TAG, "No finger");
-      }
-      return p;
-    case FINGERPRINT_IMAGEFAIL:
-      ESP_LOGE(TAG, "Imaging error");
-      return p;
-    default:
-      ESP_LOGE(TAG, "Unknown error: %d", p);
-      return p;
+  if (p != FINGERPRINT_OK) {
+    switch (p) {
+      case FINGERPRINT_PACKETRECIEVEERR:
+        ESP_LOGE(TAG, "Communication error");
+        return p;
+      case FINGERPRINT_NOFINGER:
+        if (this->sensing_pin_ != nullptr) {
+          ESP_LOGD(TAG, "No finger");
+        } else {
+          ESP_LOGV(TAG, "No finger");
+        }
+        return p;
+      case FINGERPRINT_IMAGEFAIL:
+        ESP_LOGE(TAG, "Imaging error");
+        return p;
+      default:
+        ESP_LOGE(TAG, "Unknown error: %d", p);
+        return p;
+    }
   }
 
   ESP_LOGD(TAG, "Processing image %d", buffer);
