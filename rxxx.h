@@ -10,6 +10,18 @@
 namespace esphome {
 namespace rxxx {
 
+enum AuraLEDMode : uint8_t {
+  BREATHING = FINGERPRINT_LED_BREATHING,
+  FLASHING = FINGERPRINT_LED_FLASHING,
+  ALWAYS_ON = FINGERPRINT_LED_ON,
+  ALWAYS_OFF = FINGERPRINT_LED_OFF,
+  GRADUAL_ON = FINGERPRINT_LED_GRADUAL_ON,
+  GRADUAL_OFF = FINGERPRINT_LED_GRADUAL_OFF,
+  RED = FINGERPRINT_LED_RED,
+  BLUE = FINGERPRINT_LED_BLUE,
+  PURPLE = FINGERPRINT_LED_PURPLE,
+};
+
 class RxxxComponent : public PollingComponent, public uart::UARTDevice {
   public:
   void update() override;
@@ -26,8 +38,11 @@ class RxxxComponent : public PollingComponent, public uart::UARTDevice {
   void set_sensing_pin(GPIOPin *sensing_pin) { this->sensing_pin_ = sensing_pin; }
   void set_password(uint32_t password) { password_ = password_; }
   void set_uart(Stream *uart_device) { finger_ = new Adafruit_Fingerprint(uart_device, password_); }
-  void add_on_finger_scanned_callback(std::function<void(bool, uint8_t, uint16_t, uint16_t)> callback) {
-    this->finger_scanned_callback_.add(std::move(callback));
+  void add_on_finger_scan_matched_callback(std::function<void(uint16_t, uint16_t)> callback) {
+    this->finger_scan_matched_callback_.add(std::move(callback));
+  }
+  void add_on_finger_scan_unmatched_callback(std::function<void()> callback) {
+    this->finger_scan_unmatched_callback_.add(std::move(callback));
   }
   void add_on_enrollment_scan_callback(std::function<void(uint8_t, uint16_t)> callback) {
     this->enrollment_scan_callback_.add(std::move(callback));
@@ -39,6 +54,9 @@ class RxxxComponent : public PollingComponent, public uart::UARTDevice {
   void enroll_fingerprint(uint16_t finger_id, uint8_t num_buffers);
   void finish_enrollment(uint8_t result);
   void delete_all_fingerprints();
+
+  void aura_led_control(bool on);
+  void aura_led_control(uint8_t state, uint8_t speed, uint8_t color, uint8_t count);
 
   protected:
 
@@ -61,18 +79,26 @@ class RxxxComponent : public PollingComponent, public uart::UARTDevice {
   sensor::Sensor *last_finger_id_sensor_;
   sensor::Sensor *last_confidence_sensor_;
   binary_sensor::BinarySensor *enrolling_binary_sensor_;
-  CallbackManager<void(bool, uint8_t, uint16_t, uint16_t)> finger_scanned_callback_;
+  CallbackManager<void(uint16_t, uint16_t)> finger_scan_matched_callback_;
+  CallbackManager<void()> finger_scan_unmatched_callback_;
   CallbackManager<void(uint8_t, uint16_t)> enrollment_scan_callback_;
   CallbackManager<void(bool, uint8_t, uint16_t)> enrollment_done_callback_;
 };
 
-class FingerScannedTrigger : public Trigger<bool, uint8_t, uint16_t, uint16_t> {
+class FingerScanMatchedTrigger : public Trigger<uint16_t, uint16_t> {
  public:
-  explicit FingerScannedTrigger(RxxxComponent *parent) {
-    parent->add_on_finger_scanned_callback(
-        [this](bool success, uint8_t result, uint16_t finger_id, uint16_t confidence) {
-          this->trigger(success, result, finger_id, confidence);
+  explicit FingerScanMatchedTrigger(RxxxComponent *parent) {
+    parent->add_on_finger_scan_matched_callback(
+        [this](uint16_t finger_id, uint16_t confidence) {
+          this->trigger(finger_id, confidence);
         });
+  }
+};
+
+class FingerScanUnmatchedTrigger : public Trigger<> {
+ public:
+  explicit FingerScanUnmatchedTrigger(RxxxComponent *parent) {
+    parent->add_on_finger_scan_unmatched_callback([this]() { this->trigger(); });
   }
 };
 
@@ -120,6 +146,24 @@ template<typename... Ts> class CancelEnrollmentAction : public Action<Ts...>, pu
 template<typename... Ts> class DeleteAllAction : public Action<Ts...>, public Parented<RxxxComponent> {
  public:
   void play(Ts... x) override { this->parent_->delete_all_fingerprints(); }
+};
+
+template<typename... Ts> class AuraLEDControlAction : public Action<Ts...>, public Parented<RxxxComponent> {
+ public:
+  TEMPLATABLE_VALUE(uint8_t, state)
+  TEMPLATABLE_VALUE(uint8_t, speed)
+  TEMPLATABLE_VALUE(uint8_t, color)
+  TEMPLATABLE_VALUE(uint8_t, count)
+
+  void play(Ts... x) override {
+
+    auto state = this->state_.value(x...);
+    auto speed = this->speed_.value(x...);
+    auto color = this->color_.value(x...);
+    auto count = this->count_.value(x...);
+
+    this->parent_->aura_led_control(state, speed, color, count);
+  }
 };
 
 }  // namespace rxxx

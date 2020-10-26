@@ -7,12 +7,12 @@ from . import CONF_RXXX_ID, RxxxComponent
 
 DEPENDENCIES = ['rxxx']
 
-CONF_FINGERPRINT_COUNT = "fingerprint_count"
-CONF_STATUS = "status"
-CONF_CAPACITY = "capacity"
-CONF_SECURITY_LEVEL = "security_level"
-CONF_LAST_FINGER_ID = "last_finger_id"
-CONF_LAST_CONFIDENCE = "last_confidence"
+CONF_FINGERPRINT_COUNT = 'fingerprint_count'
+CONF_STATUS = 'status'
+CONF_CAPACITY = 'capacity'
+CONF_SECURITY_LEVEL = 'security_level'
+CONF_LAST_FINGER_ID = 'last_finger_id'
+CONF_LAST_CONFIDENCE = 'last_confidence'
 
 CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(CONF_RXXX_ID): cv.use_id(RxxxComponent),
