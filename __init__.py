@@ -49,6 +49,7 @@ EnrollmentAction = rxxx_ns.class_('EnrollmentAction', automation.Action)
 CancelEnrollmentAction = rxxx_ns.class_('CancelEnrollmentAction', automation.Action)
 DeleteAction = rxxx_ns.class_('DeleteAction', automation.Action)
 DeleteAllAction = rxxx_ns.class_('DeleteAllAction', automation.Action)
+LEDControlAction = rxxx_ns.class_('LEDControlAction', automation.Action)
 AuraLEDControlAction = rxxx_ns.class_('AuraLEDControlAction', automation.Action)
 
 AuraLEDMode = rxxx_ns.enum('AuraLEDMode')
@@ -129,11 +130,11 @@ def to_code(config):
     cg.add_library('382', '2.0.4')
 
 
-@automation.register_action('rxxx.enroll', EnrollmentAction, cv.Schema({
+@automation.register_action('rxxx.enroll', EnrollmentAction, cv.maybe_simple_value({
     cv.GenerateID(): cv.use_id(RxxxComponent),
     cv.Required(CONF_FINGER_ID): cv.templatable(cv.uint16_t),
     cv.Optional(CONF_NUM_SCANS): cv.templatable(cv.uint8_t),
-}))
+}, key=CONF_FINGER_ID))
 def rxxx_enroll_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
     yield cg.register_parented(var, config[CONF_ID])
@@ -143,6 +144,19 @@ def rxxx_enroll_to_code(config, action_id, template_arg, args):
     if CONF_NUM_SCANS in config:
         template_ = yield cg.templatable(config[CONF_NUM_SCANS], args, cg.uint8)
         cg.add(var.set_num_scans(template_))
+    yield var
+
+
+@automation.register_action('rxxx.led_control', LEDControlAction, cv.maybe_simple_value({
+    cv.GenerateID(): cv.use_id(RxxxComponent),
+    cv.Required(CONF_STATE): cv.templatable(cv.boolean),
+}, key=CONF_STATE))
+def rxxx_led_control_to_code(config, action_id, template_arg, args):
+    var = cg.new_Pvariable(action_id, template_arg)
+    yield cg.register_parented(var, config[CONF_ID])
+    
+    template_ = yield cg.templatable(config[CONF_STATE], args, cg.bool_)
+    cg.add(var.set_state(template_))
     yield var
 
 
@@ -171,10 +185,10 @@ def rxxx_cancel_enroll_to_code(config, action_id, template_arg, args):
     yield cg.register_parented(var, config[CONF_ID])
     yield var
 
-@automation.register_action('rxxx.delete', DeleteAction, cv.Schema({
+@automation.register_action('rxxx.delete', DeleteAction, cv.maybe_simple_value({
     cv.GenerateID(): cv.use_id(RxxxComponent),
     cv.Required(CONF_FINGER_ID): cv.templatable(cv.uint16_t),
-}))
+}, key=CONF_FINGER_ID))
 def rxxx_delete_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
     yield cg.register_parented(var, config[CONF_ID])
