@@ -105,7 +105,11 @@ void RxxxComponent::enroll_fingerprint(uint16_t finger_id, uint8_t num_buffers) 
 }
 
 void RxxxComponent::finish_enrollment(uint8_t result) {
-  this->enrollment_done_callback_.call(result == FINGERPRINT_OK, result, this->enrollment_slot_);
+  if (result == FINGERPRINT_OK) {
+    this->enrollment_done_callback_.call(this->enrollment_slot_);
+  } else {
+    this->enrollment_failed_callback_.call(this->enrollment_slot_);
+  }
   this->enrollment_image_ = 0;
   this->enrollment_slot_ = 0;
   this->enrolling_binary_sensor_->publish_state(false);
@@ -192,8 +196,38 @@ uint8_t RxxxComponent::scan_image_(uint8_t buffer) {
 }
 
 void RxxxComponent::get_fingerprint_count_() {
-  this->finger_->getTemplateCount();
-  this->fingerprint_count_sensor_->publish_state(this->finger_->templateCount);
+  ESP_LOGD(TAG, "Getting fingerprint count");
+  uint8_t result = this->finger_->getTemplateCount();
+  switch (result) {
+    case FINGERPRINT_OK:
+      ESP_LOGD(TAG, "Got fingerprint count");
+      this->fingerprint_count_sensor_->publish_state(this->finger_->templateCount);
+      break;
+    case FINGERPRINT_PACKETRECIEVEERR:
+      ESP_LOGE(TAG, "Communication error");
+      break;
+    default:
+      ESP_LOGE(TAG, "Unknown error: %d", result);
+  }
+}
+
+void RxxxComponent::delete_fingerprint(uint16_t finger_id) {
+  ESP_LOGI(TAG, "Deleting fingerprint in slot %d", finger_id);
+  uint8_t result = this->finger_->deleteModel(finger_id);
+  switch (result) {
+    case FINGERPRINT_OK:
+      ESP_LOGI(TAG, "Deleted fingerprint");
+      this->get_fingerprint_count_();
+      break;
+    case FINGERPRINT_PACKETRECIEVEERR:
+      ESP_LOGE(TAG, "Communication error");
+      break;
+    case FINGERPRINT_DELETEFAIL:
+      ESP_LOGE(TAG, "Failed to delete fingerprint");
+      break;
+    default:
+      ESP_LOGE(TAG, "Unknown error: %d", result);
+  }
 }
 
 void RxxxComponent::delete_all_fingerprints() {
@@ -216,10 +250,17 @@ void RxxxComponent::delete_all_fingerprints() {
 }
 
 void RxxxComponent::aura_led_control(uint8_t state, uint8_t speed, uint8_t color, uint8_t count) {
+  const uint32_t now = millis();
+  const uint32_t elapsed = now - this->last_aura_led_control_;
+  if (elapsed < this->last_aura_led_duration_) {
+      delay(this->last_aura_led_duration_ - elapsed);
+  }
   uint8_t result = this->finger_->LEDcontrol(state, speed, color, count);
   switch (result) {
     case FINGERPRINT_OK:
       ESP_LOGI(TAG, "Aura LED set");
+      this->last_aura_led_control_ = millis();
+      this->last_aura_led_duration_ = 10 * speed * count;
       break;
     case FINGERPRINT_PACKETRECIEVEERR:
       ESP_LOGE(TAG, "Communication error");
