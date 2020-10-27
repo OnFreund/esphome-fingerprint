@@ -70,7 +70,7 @@ class RxxxComponent : public PollingComponent, public uart::UARTDevice {
   void delete_fingerprint(uint16_t finger_id);
   void delete_all_fingerprints();
 
-  void aura_led_control(bool on);
+  void led_control(bool on);
   void aura_led_control(uint8_t state, uint8_t speed, uint8_t color, uint8_t count);
 
   protected:
@@ -184,6 +184,16 @@ template<typename... Ts> class DeleteAction : public Action<Ts...>, public Paren
 template<typename... Ts> class DeleteAllAction : public Action<Ts...>, public Parented<RxxxComponent> {
  public:
   void play(Ts... x) override { this->parent_->delete_all_fingerprints(); }
+};
+
+template<typename... Ts> class LEDControlAction : public Action<Ts...>, public Parented<RxxxComponent> {
+ public:
+  TEMPLATABLE_VALUE(bool, state)
+
+  void play(Ts... x) override {
+    auto state = this->state_.value(x...);
+    this->parent_->led_control(state);
+  }
 };
 
 template<typename... Ts> class AuraLEDControlAction : public Action<Ts...>, public Parented<RxxxComponent> {

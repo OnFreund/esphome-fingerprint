@@ -99,7 +99,7 @@ void RxxxComponent::setup() {
 }
 
 void RxxxComponent::enroll_fingerprint(uint16_t finger_id, uint8_t num_buffers) {
-  ESP_LOGD(TAG, "Starting enrollment in slot %d", finger_id);
+  ESP_LOGI(TAG, "Starting enrollment in slot %d", finger_id);
   this->enrolling_binary_sensor_->publish_state(true);
   this->enrollment_slot_ = finger_id, this->enrollment_buffers_ = num_buffers, this->enrollment_image_ = 1;
 }
@@ -113,7 +113,7 @@ void RxxxComponent::finish_enrollment(uint8_t result) {
   this->enrollment_image_ = 0;
   this->enrollment_slot_ = 0;
   this->enrolling_binary_sensor_->publish_state(false);
-  ESP_LOGD(TAG, "Finished enrollment");
+  ESP_LOGI(TAG, "Finished enrollment");
 }
 
 void RxxxComponent::scan_and_match_() {
@@ -249,16 +249,33 @@ void RxxxComponent::delete_all_fingerprints() {
   }
 }
 
+void RxxxComponent::led_control(bool state) {
+  ESP_LOGD(TAG, "Setting LED");
+  uint8_t result = this->finger_->LEDcontrol(state);
+  switch (result) {
+    case FINGERPRINT_OK:
+      ESP_LOGD(TAG, "LED set");
+      break;
+    case FINGERPRINT_PACKETRECIEVEERR:
+      ESP_LOGE(TAG, "Communication error");
+      break;
+    default:
+      ESP_LOGE(TAG, "Unknown error: %d", result);
+      ESP_LOGE(TAG, "Try aura_led_control instead");
+  }
+}
+
 void RxxxComponent::aura_led_control(uint8_t state, uint8_t speed, uint8_t color, uint8_t count) {
   const uint32_t now = millis();
   const uint32_t elapsed = now - this->last_aura_led_control_;
   if (elapsed < this->last_aura_led_duration_) {
       delay(this->last_aura_led_duration_ - elapsed);
   }
+  ESP_LOGD(TAG, "Setting Aura LED");
   uint8_t result = this->finger_->LEDcontrol(state, speed, color, count);
   switch (result) {
     case FINGERPRINT_OK:
-      ESP_LOGI(TAG, "Aura LED set");
+      ESP_LOGD(TAG, "Aura LED set");
       this->last_aura_led_control_ = millis();
       this->last_aura_led_duration_ = 10 * speed * count;
       break;
@@ -267,6 +284,7 @@ void RxxxComponent::aura_led_control(uint8_t state, uint8_t speed, uint8_t color
       break;
     default:
       ESP_LOGE(TAG, "Unknown error: %d", result);
+      ESP_LOGE(TAG, "Try led_control instead");
   }
 }
 
