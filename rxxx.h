@@ -28,26 +28,27 @@ class RxxxComponent : public PollingComponent, public uart::UARTDevice {
   void setup() override;
   void dump_config() override;
 
+  void set_sensing_pin(GPIOPin *sensing_pin) { this->sensing_pin_ = sensing_pin; }
+  void set_password(uint32_t password) { this->password_ = password; }
+  void set_new_password(uint32_t new_password) { this->new_password_ = &new_password; }
+  void set_uart(Stream *uart_device) { this->finger_ = new Adafruit_Fingerprint(uart_device, password_); }
   void set_fingerprint_count_sensor(sensor::Sensor *fingerprint_count_sensor) {
-    fingerprint_count_sensor_ = fingerprint_count_sensor;
+    this->fingerprint_count_sensor_ = fingerprint_count_sensor;
   }
-  void set_status_sensor(sensor::Sensor *status_sensor) { status_sensor_ = status_sensor; }
-  void set_capacity_sensor(sensor::Sensor *capacity_sensor) { capacity_sensor_ = capacity_sensor; }
+  void set_status_sensor(sensor::Sensor *status_sensor) { this->status_sensor_ = status_sensor; }
+  void set_capacity_sensor(sensor::Sensor *capacity_sensor) { this->capacity_sensor_ = capacity_sensor; }
   void set_security_level_sensor(sensor::Sensor *security_level_sensor) {
-    security_level_sensor_ = security_level_sensor;
+    this->security_level_sensor_ = security_level_sensor;
   }
   void set_last_finger_id_sensor(sensor::Sensor *last_finger_id_sensor) {
-    last_finger_id_sensor_ = last_finger_id_sensor;
+    this->last_finger_id_sensor_ = last_finger_id_sensor;
   }
   void set_last_confidence_sensor(sensor::Sensor *last_confidence_sensor) {
-    last_confidence_sensor_ = last_confidence_sensor;
+    this->last_confidence_sensor_ = last_confidence_sensor;
   }
   void set_enrolling_binary_sensor(binary_sensor::BinarySensor *enrolling_binary_sensor) {
-    enrolling_binary_sensor_ = enrolling_binary_sensor;
+    this->enrolling_binary_sensor_ = enrolling_binary_sensor;
   }
-  void set_sensing_pin(GPIOPin *sensing_pin) { this->sensing_pin_ = sensing_pin; }
-  void set_password(uint32_t password) { password_ = password_; }
-  void set_uart(Stream *uart_device) { finger_ = new Adafruit_Fingerprint(uart_device, password_); }
   void add_on_finger_scan_matched_callback(std::function<void(uint16_t, uint16_t)> callback) {
     this->finger_scan_matched_callback_.add(std::move(callback));
   }
@@ -82,6 +83,7 @@ class RxxxComponent : public PollingComponent, public uart::UARTDevice {
 
   Adafruit_Fingerprint *finger_;
   uint32_t password_ = 0x0;
+  uint32_t *new_password_{nullptr};
   GPIOPin *sensing_pin_{nullptr};
   uint8_t enrollment_image_ = 0;
   uint16_t enrollment_slot_ = 0;
@@ -89,13 +91,13 @@ class RxxxComponent : public PollingComponent, public uart::UARTDevice {
   bool waiting_removal_ = false;
   uint32_t last_aura_led_control_ = 0;
   uint16_t last_aura_led_duration_ = 0;
-  sensor::Sensor *fingerprint_count_sensor_;
-  sensor::Sensor *status_sensor_;
-  sensor::Sensor *capacity_sensor_;
-  sensor::Sensor *security_level_sensor_;
-  sensor::Sensor *last_finger_id_sensor_;
-  sensor::Sensor *last_confidence_sensor_;
-  binary_sensor::BinarySensor *enrolling_binary_sensor_;
+  sensor::Sensor *fingerprint_count_sensor_{nullptr};
+  sensor::Sensor *status_sensor_{nullptr};
+  sensor::Sensor *capacity_sensor_{nullptr};
+  sensor::Sensor *security_level_sensor_{nullptr};
+  sensor::Sensor *last_finger_id_sensor_{nullptr};
+  sensor::Sensor *last_confidence_sensor_{nullptr};
+  binary_sensor::BinarySensor *enrolling_binary_sensor_{nullptr};
   CallbackManager<void(uint16_t, uint16_t)> finger_scan_matched_callback_;
   CallbackManager<void()> finger_scan_unmatched_callback_;
   CallbackManager<void(uint8_t, uint16_t)> enrollment_scan_callback_;

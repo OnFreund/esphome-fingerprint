@@ -12,6 +12,7 @@ AUTO_LOAD = ['binary_sensor', 'sensor']
 MULTI_CONF = True
 
 CONF_SENSING_PIN = 'sensing_pin'
+CONF_NEW_PASSWORD = 'new_password'
 CONF_ON_FINGER_SCAN_MATCHED = 'on_finger_scan_matched'
 CONF_ON_FINGER_SCAN_UNMATCHED = 'on_finger_scan_unmatched'
 CONF_ON_ENROLLMENT_SCAN = 'on_enrollment_scan'
@@ -73,6 +74,7 @@ CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.declare_id(RxxxComponent),
     cv.Optional(CONF_SENSING_PIN): pins.gpio_input_pin_schema,
     cv.Optional(CONF_PASSWORD): cv.uint32_t,
+    cv.Optional(CONF_NEW_PASSWORD): cv.uint32_t,
     cv.Optional(CONF_ON_FINGER_SCAN_MATCHED): automation.validate_automation({
         cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(FingerScanMatchedTrigger),
     }),
@@ -99,6 +101,10 @@ def to_code(config):
         cg.add(var.set_password(password))
     uart_device = yield uart.register_uart_device(var, config)
     cg.add(var.set_uart(uart_device))
+
+    if CONF_NEW_PASSWORD in config:
+        new_password = config[CONF_NEW_PASSWORD]
+        cg.add(var.set_new_password(new_password))
 
     if CONF_SENSING_PIN in config:
         sensing_pin = yield cg.gpio_pin_expression(config[CONF_SENSING_PIN])
@@ -127,7 +133,7 @@ def to_code(config):
         yield automation.build_automation(trigger, [(cg.uint16, 'finger_id')], conf)
 
     # https://platformio.org/lib/show/382/Adafruit%20Fingerprint%20Sensor%20Library
-    cg.add_library('382', '2.0.4')
+    cg.add_library('https://github.com/loongyh/Adafruit-Fingerprint-Sensor-Library.git', None)
 
 
 @automation.register_action('rxxx.enroll', EnrollmentAction, cv.maybe_simple_value({
@@ -144,6 +150,35 @@ def rxxx_enroll_to_code(config, action_id, template_arg, args):
     if CONF_NUM_SCANS in config:
         template_ = yield cg.templatable(config[CONF_NUM_SCANS], args, cg.uint8)
         cg.add(var.set_num_scans(template_))
+    yield var
+
+
+@automation.register_action('rxxx.cancel_enroll', CancelEnrollmentAction, cv.Schema({
+    cv.GenerateID(): cv.use_id(RxxxComponent),
+}))
+def rxxx_cancel_enroll_to_code(config, action_id, template_arg, args):
+    var = cg.new_Pvariable(action_id, template_arg)
+    yield cg.register_parented(var, config[CONF_ID])
+    yield var
+
+@automation.register_action('rxxx.delete', DeleteAction, cv.maybe_simple_value({
+    cv.GenerateID(): cv.use_id(RxxxComponent),
+    cv.Required(CONF_FINGER_ID): cv.templatable(cv.uint16_t),
+}, key=CONF_FINGER_ID))
+def rxxx_delete_to_code(config, action_id, template_arg, args):
+    var = cg.new_Pvariable(action_id, template_arg)
+    yield cg.register_parented(var, config[CONF_ID])
+    
+    template_ = yield cg.templatable(config[CONF_FINGER_ID], args, cg.uint16)
+    cg.add(var.set_finger_id(template_))
+    yield var
+
+@automation.register_action('rxxx.delete_all', DeleteAllAction, cv.Schema({
+    cv.GenerateID(): cv.use_id(RxxxComponent),
+}))
+def rxxx_delete_all_to_code(config, action_id, template_arg, args):
+    var = cg.new_Pvariable(action_id, template_arg)
+    yield cg.register_parented(var, config[CONF_ID])
     yield var
 
 
@@ -174,33 +209,4 @@ def rxxx_aura_led_control_to_code(config, action_id, template_arg, args):
     for key in [CONF_STATE, CONF_SPEED, CONF_COLOR, CONF_COUNT]:
         template_ = yield cg.templatable(config[key], args, cg.uint8)
         cg.add(getattr(var, f'set_{key}')(template_))
-    yield var
-
-
-@automation.register_action('rxxx.cancel_enroll', CancelEnrollmentAction, cv.Schema({
-    cv.GenerateID(): cv.use_id(RxxxComponent),
-}))
-def rxxx_cancel_enroll_to_code(config, action_id, template_arg, args):
-    var = cg.new_Pvariable(action_id, template_arg)
-    yield cg.register_parented(var, config[CONF_ID])
-    yield var
-
-@automation.register_action('rxxx.delete', DeleteAction, cv.maybe_simple_value({
-    cv.GenerateID(): cv.use_id(RxxxComponent),
-    cv.Required(CONF_FINGER_ID): cv.templatable(cv.uint16_t),
-}, key=CONF_FINGER_ID))
-def rxxx_delete_to_code(config, action_id, template_arg, args):
-    var = cg.new_Pvariable(action_id, template_arg)
-    yield cg.register_parented(var, config[CONF_ID])
-    
-    template_ = yield cg.templatable(config[CONF_FINGER_ID], args, cg.uint16)
-    cg.add(var.set_finger_id(template_))
-    yield var
-
-@automation.register_action('rxxx.delete_all', DeleteAllAction, cv.Schema({
-    cv.GenerateID(): cv.use_id(RxxxComponent),
-}))
-def rxxx_delete_all_to_code(config, action_id, template_arg, args):
-    var = cg.new_Pvariable(action_id, template_arg)
-    yield cg.register_parented(var, config[CONF_ID])
     yield var
