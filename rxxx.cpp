@@ -86,22 +86,65 @@ void RxxxComponent::update() {
 
 void RxxxComponent::setup() {
   ESP_LOGCONFIG(TAG, "Setting up Rxxx Fingerprint Sensor...");
-  if (!this->finger_->verifyPassword()) {
-    ESP_LOGE(TAG, "Could not find fingerprint sensor");
+  uint8_t result = this->finger_->checkPassword();
+  if (result == FINGERPRINT_OK) {
+    ESP_LOGD(TAG, "Password verified");
+    if (this->new_password_ != nullptr) {
+      ESP_LOGI(TAG, "Setting new password: %d", *this->new_password_);
+      result = this->finger_->setPassword(*this->new_password_);
+      if (result == FINGERPRINT_OK) {
+        ESP_LOGI(TAG, "New password successfully set");
+        ESP_LOGI(TAG, "Define the new password in your configuration and reflash now");
+        ESP_LOGW(TAG, "!!!Forgetting the password will render your device unusable!!!");
+      } else {
+        ESP_LOGE(TAG, "Communication error");
+        this->mark_failed();
+      }
+    } else {
+      ESP_LOGD(TAG, "Getting parameters");
+      result = this->finger_->getParameters();
+      if (result != FINGERPRINT_OK) {
+        ESP_LOGE(TAG, "Error getting parameters");
+        this->mark_failed();
+      } else {
+        if (this->status_sensor_ != nullptr) {
+          this->status_sensor_->publish_state(this->finger_->status_reg);
+        }
+        if (this->capacity_sensor_ != nullptr) {
+          this->capacity_sensor_->publish_state(this->finger_->capacity);
+        }
+        if (this->security_level_sensor_ != nullptr) {
+          this->security_level_sensor_->publish_state(this->finger_->security_level);
+        }
+        if (this->enrolling_binary_sensor_ != nullptr) {
+          this->enrolling_binary_sensor_->publish_state(false);
+        }
+        this->get_fingerprint_count_();
+      }
+    }
+  } else {
+    switch (result) {
+      case FINGERPRINT_PACKETRECIEVEERR:
+        ESP_LOGE(TAG, "Communication error");
+        break;
+      case FINGERPRINT_PASSFAIL:
+        ESP_LOGE(TAG, "Wrong password");
+        break;
+      default:
+        ESP_LOGE(TAG, "Unknown error: %d", result);
+    }
     this->mark_failed();
   }
-  this->finger_->getParameters();
-  this->status_sensor_->publish_state(this->finger_->status_reg);
-  this->capacity_sensor_->publish_state(this->finger_->capacity);
-  this->security_level_sensor_->publish_state(this->finger_->security_level);
-  this->enrolling_binary_sensor_->publish_state(false);
-  this->get_fingerprint_count_();
 }
 
 void RxxxComponent::enroll_fingerprint(uint16_t finger_id, uint8_t num_buffers) {
   ESP_LOGI(TAG, "Starting enrollment in slot %d", finger_id);
-  this->enrolling_binary_sensor_->publish_state(true);
-  this->enrollment_slot_ = finger_id, this->enrollment_buffers_ = num_buffers, this->enrollment_image_ = 1;
+  if (this->enrolling_binary_sensor_ != nullptr) {
+    this->enrolling_binary_sensor_->publish_state(true);
+  }
+  this->enrollment_slot_ = finger_id;
+  this->enrollment_buffers_ = num_buffers;
+  this->enrollment_image_ = 1;
 }
 
 void RxxxComponent::finish_enrollment(uint8_t result) {
@@ -112,7 +155,9 @@ void RxxxComponent::finish_enrollment(uint8_t result) {
   }
   this->enrollment_image_ = 0;
   this->enrollment_slot_ = 0;
-  this->enrolling_binary_sensor_->publish_state(false);
+  if (this->enrolling_binary_sensor_ != nullptr) {
+    this->enrolling_binary_sensor_->publish_state(false);
+  }
   ESP_LOGI(TAG, "Finished enrollment");
 }
 
@@ -126,8 +171,12 @@ void RxxxComponent::scan_and_match_() {
     result = this->finger_->fingerSearch();
     ESP_LOGD(TAG, "Finger searched");
     if (result == FINGERPRINT_OK) {
-      this->last_finger_id_sensor_->publish_state(this->finger_->fingerID);
-      this->last_confidence_sensor_->publish_state(this->finger_->confidence);
+      if (this->last_finger_id_sensor_ != nullptr) { 
+        this->last_finger_id_sensor_->publish_state(this->finger_->fingerID);
+      }
+      if (this->last_confidence_sensor_ != nullptr) { 
+        this->last_confidence_sensor_->publish_state(this->finger_->confidence);
+      }
       this->finger_scan_matched_callback_.call(this->finger_->fingerID, this->finger_->confidence);
     } else {
       switch (result) {
@@ -201,7 +250,9 @@ void RxxxComponent::get_fingerprint_count_() {
   switch (result) {
     case FINGERPRINT_OK:
       ESP_LOGD(TAG, "Got fingerprint count");
-      this->fingerprint_count_sensor_->publish_state(this->finger_->templateCount);
+      if (this->fingerprint_count_sensor_ != nullptr) { 
+        this->fingerprint_count_sensor_->publish_state(this->finger_->templateCount);
+      }
       break;
     case FINGERPRINT_PACKETRECIEVEERR:
       ESP_LOGE(TAG, "Communication error");
