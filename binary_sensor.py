@@ -1,24 +1,18 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import binary_sensor
-from esphome.const import CONF_ID, CONF_TRIGGER_ID
-from . import CONF_FINGERPRINT_READER_ID, fingerprint_ns, FingerprintComponent
+from esphome.const import CONF_ICON, ICON_KEY_PLUS
+from . import CONF_RXXX_ID, RxxxComponent
 
-DEPENDENCIES = ['fingerprint_reader']
+DEPENDENCIES = ['rxxx']
 
-CONF_ENROLLING = "enrolling"
-
-CONFIG_SCHEMA = cv.Schema.extend({
-    cv.GenerateID(CONF_FINGERPRINT_READER_ID): cv.use_id(FingerprintComponent),
-    cv.Optional(CONF_ENROLLING):
-        binary_sensor.BINARY_SENSOR_SCHEMA,
+CONFIG_SCHEMA = binary_sensor.BINARY_SENSOR_SCHEMA.extend({
+    cv.GenerateID(CONF_RXXX_ID): cv.use_id(RxxxComponent),
+    cv.Optional(CONF_ICON, default=ICON_KEY_PLUS): cv.icon,
 })
 
 
 def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
-
-    if CONF_ENROLLING in config:
-        conf = config[CONF_ENROLLING]
-        sens = yield binary_sensor.new_sensor(conf)
-        cg.add(var.set_enrolling_binary_sensor(sens))
+    hub = yield cg.get_variable(config[CONF_RXXX_ID])
+    var = yield binary_sensor.new_binary_sensor(config)
+    cg.add(hub.set_enrolling_binary_sensor(var))
